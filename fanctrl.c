@@ -114,60 +114,75 @@ static void do_ec(const uint32_t cmd, const uint32_t port, const uint8_t value)
 static void dump_fan_config(void)
 {
 	printf("Dump FAN\n");
-        int raw_duty = read_ec(0xCE);
-        int val_duty = (int) ((double) raw_duty / 255.0 * 100.0);
-	int raw_rpm = (read_ec(0xD0) << 8) + (read_ec(0xD1));
-	int val_rpm;
-	if (raw_rpm == 0)
-		val_rpm = 0;
+        int raw_duty1 = read_ec(0xCE);
+        int val_duty1 = (int) ((double) raw_duty1 / 255.0 * 100.0);
+	int raw_rpm1 = (read_ec(0xD0) << 8) + (read_ec(0xD1));
+	int val_rpm1;
+	if (raw_rpm1 == 0)
+		val_rpm1 = 0;
 	else
-		val_rpm = 2156220 / raw_rpm;
-	printf("FAN Duty: %d%%\n", val_duty);
-	printf("FAN RPMs: %d RPM\n", val_rpm);
-	printf("CPU Temp: %d°C\n", read_ec(0x07));
+		val_rpm1 = 2156220 / raw_rpm1;
+        int raw_duty2 = read_ec(0xCF);
+        int val_duty2 = (int) ((double) raw_duty2 / 255.0 * 100.0);
+	int raw_rpm2 = (read_ec(0xD2) << 8) + (read_ec(0xD3));
+	int val_rpm2;
+	if (raw_rpm2 == 0)
+		val_rpm2 = 0;
+	else
+		val_rpm2 = 2156220 / raw_rpm2;
+	printf("FAN1 Duty: %d %%\n", val_duty1);
+	printf("FAN1 RPMs: %d RPM\n", val_rpm1);
+	printf("FAN2 Duty: %d %%\n", val_duty2);
+	printf("FAN2 RPMs: %d RPM\n", val_rpm2);
+	printf("CPU Temp: %d °C\n", read_ec(0x07));
 }
 
-static void test_fan_config(int duty_percentage)
+static void test_fan_config(int fanidx, int duty_percentage)
 {
 	double v_d = ((double) duty_percentage) / 100.0 * 255.0;
 	int v_i = (int) v_d;
 	printf("Test FAN %d%% to %d\n", duty_percentage, v_i);
-	do_ec(0x99, 0x01, v_i);
-	do_ec(0x99, 0x02, v_i);
+	if (fanidx == 1) do_ec(0x99, 0x01, v_i);
+	if (fanidx == 2) do_ec(0x99, 0x02, v_i);
 	dump_fan_config();
 }
 
+
 int main(int argc, char *argv[])
 {
-	int Result;
+    int Result;
 
-	printf("Simple fan control utility for MSI Wind and clones\n");
-	printf("USE AT YOUR OWN RISK!!\n");
-	//bResult = InitializeWinIo();
-        Result = ioperm(0x62,1,1);
-        Result += ioperm(0x66,1,1);
+    printf("Simple fan control utility for MSI Wind and clones\n");
+    printf("USE AT YOUR OWN RISK!!\n");
 
-	// The arg parsing is very quick & dirty (ugly)
-	if (Result==0)
-	{
-		argc--;
-		argv++;
+    // 初始化I/O权限
+    Result = ioperm(0x62, 1, 1);
+    Result += ioperm(0x66, 1, 1);
 
-		if (argc <= 0)
-		{
-			dump_fan_config();
-		}
-		else
-		{
-			test_fan_config(atoi(*argv));
-		}
-	}
-	else
-	{
-		printf("ioperm() failed!\n");
-		exit(1);
-	}
-	return 0;
+    // 检查I/O权限是否成功设置
+    if (Result == 0) {
+        // 跳过程序名称参数
+        argc--;
+        argv++;
+
+        // 检查参数数量并相应地调用函数
+        if (argc == 0) {
+            // 没有提供额外参数，调用dump_fan_config
+            dump_fan_config();
+        } else if (argc == 2) {
+            // 提供了两个参数，将它们转换为整数并调用test_fan_config
+            int param1 = atoi(argv[0]);
+            int param2 = atoi(argv[1]);
+            test_fan_config(param1, param2);
+        } else {
+            // 参数数量不符合要求，打印错误信息
+            printf("Invalid number of arguments. Please provide two integers as arguments.\n");
+            exit(1);
+        }
+    } else {
+        printf("ioperm() failed!\n");
+        exit(1);
+    }
+    return 0;
 }
-
 
